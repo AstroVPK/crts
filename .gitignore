@@ -1,0 +1,61 @@
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.so.*
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Python
+*.pyc
+
+# Data, Images, and Documents
+*.dat
+*.lc
+*.mcmc
+*.jpg
+*.pdf
+*.eps
+*.png
+*.log
+
+# Backups
+*~
+
+# Python Extensions
+_libcarma.py
+
+# Specific Executables Etc...
+src/CARMATask.cpp
+src/rand.cpp
+src/bSMBH.cpp
+testPoint
+endToEndTest
+plotCARMARegions
+fitCARMA
+writeKeplerLC
+writeMockLC
+computeCFs
+recoveryTest
