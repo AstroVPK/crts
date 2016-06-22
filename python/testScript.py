@@ -8,6 +8,8 @@ import psutil
 import time
 import pdb
 
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 try:
