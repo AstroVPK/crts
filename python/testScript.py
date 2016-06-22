@@ -19,6 +19,57 @@ import util.mcmcviz as mcmcviz
 from util.mpl_settings import set_plot_params
 import util.triangle as triangle
 
+def _writeResult(filename, path, p, q, DIC, Chain, timescaleChain, LnPosterior):
+	ndims = p + q + 1
+	nwalkers = Chain.shape[1]
+	nsteps = Chain.shape[2]
+	bestWalker = np.where(LnPosterior == np.max(LnPosterior))[0][0]
+	bestStep = np.where(LnPosterior == np.max(LnPosterior))[1][0]
+
+	fullFilename = filename + '_%d_%d_Chain.dat'%(p, q)
+	filePath = os.path.join(path, fullFilename)
+	with open(filePath, 'w') as fileOut:
+		line = 'p: %d q: %d ndims: %d nwalkers: %d nsteps: %d DIC: %+16.15e\n'%(p, q, ndims, nwalkers, nsteps, DIC)
+		fileOut.write(line)
+		line = 'MLE\n'
+		fileOut.write(line)
+		line = ''
+		for dimNum in xrange(ndims):
+			line += '%+16.15e '%(Chain[dimNum, bestWalker, bestStep])
+		line += '%+16.15e\n'%(LnPosterior[bestWalker, bestStep])
+		fileOut.write(line)
+		line = 'Draws\n'
+		fileOut.write(line)
+		for stepNum in xrange(nsteps):
+			for walkerNum in xrange(nwalkers):
+				line = ''
+				for dimNum in xrange(ndims):
+					line += '%+16.15e '%(Chain[dimNum, walkerNum, stepNum])
+				line += '%+16.15e\n'%(LnPosterior[walkerNum, stepNum])
+				fileOut.write(line)
+
+	fullFilename = filename + '_%d_%d_timescaleChain.dat'%(p, q)
+	filePath = os.path.join(path, fullFilename)
+	with open(filePath, 'w') as fileOut:
+		line = 'p: %d q: %d ndims: %d nwalkers: %d nsteps: %d DIC: %+16.15e\n'%(p, q, ndims, nwalkers, nsteps, DIC)
+		fileOut.write(line)
+		line = 'MLE\n'
+		fileOut.write(line)
+		line = ''
+		for dimNum in xrange(ndims):
+			line += '%+16.15e '%(timescaleChain[dimNum, bestWalker, bestStep])
+		line += '%+16.15e\n'%(LnPosterior[bestWalker, bestStep])
+		fileOut.write(line)
+		line = 'Draws\n'
+		fileOut.write(line)
+		for stepNum in xrange(nsteps):
+			for walkerNum in xrange(nwalkers):
+				line = ''
+				for dimNum in xrange(ndims):
+					line += '%+16.15e '%(timescaleChain[dimNum, walkerNum, stepNum])
+				line += '%+16.15e\n'%(LnPosterior[walkerNum, stepNum])
+				fileOut.write(line)
+
 def _readCRTS(filename, path):
 	filePath = os.path.join(path, filename)
 	with open(filePath) as fileIn:
@@ -75,9 +126,9 @@ if __name__ == '__main__':
 	parser.add_argument('--stop', dest = 'stop', action = 'store_true', help = r'Stop at end?')
 	parser.add_argument('--no-stop', dest = 'stop', action = 'store_false', help = r'Do not stop at end?')
 	parser.set_defaults(stop = False)
-	parser.add_argument('--save', dest = 'save', action = 'store_true', help = r'Save files?')
-	parser.add_argument('--no-save', dest = 'save', action = 'store_false', help = r'Do not save files?')
-	parser.set_defaults(save = False)
+	parser.add_argument('--save', dest = 'save', action = 'store_true', help = r'Save MCMC files?')
+	parser.add_argument('--no-save', dest = 'save', action = 'store_false', help = r'Do not save MCMC files?')
+	parser.set_defaults(save = True)
 	parser.add_argument('--fit', dest = 'fit', action = 'store_true', help = r'Fit CARMA model')
 	parser.add_argument('--no-fit', dest = 'fit', action = 'store_false', help = r'Do not fit CARMA model')
 	parser.set_defaults(fit = True)
@@ -140,6 +191,9 @@ if __name__ == '__main__':
 			print 'C-ARMA(%d,%d) DIC: %+4.3e'%(p, q, DIC)
 			DICDict['%d %d'%(p, q)] = DIC
 			taskDict['%d %d'%(p, q)] = nt
+
+			if args.save:
+				_writeResult(args.name, args.pwd, p, q, DIC, nt.Chain, nt.timescaleChain, nt.LnPosterior)
 
 	sortedDICVals = sorted(DICDict.items(), key = operator.itemgetter(1))
 	pBest = int(sortedDICVals[0][0].split()[0])
