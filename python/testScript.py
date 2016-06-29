@@ -6,11 +6,20 @@ import os
 import argparse
 import psutil
 import time
+import sys
 import pdb
 
-import matplotlib
-matplotlib.use('Agg')
+from sklearn.neighbors import KernelDensity
+from sklearn.grid_search import GridSearchCV
+
+try:
+	os.environ['DISPLAY']
+except KeyError:
+	import matplotlib
+	matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from matplotlib.colors import BoundaryNorm
+from matplotlib.ticker import MaxNLocator
 
 try:
 	import libcarma as libcarma
@@ -20,6 +29,10 @@ except ImportError:
 import util.mcmcviz as mcmcviz
 from util.mpl_settings import set_plot_params
 import util.triangle as triangle
+
+fhgt = 10
+fwid = 16
+set_plot_params(useTex = True)
 
 def _writeResult(filename, path, p, q, DIC, Chain, timescaleChain, LnPosterior):
 	ndims = p + q + 1
@@ -71,6 +84,68 @@ def _writeResult(filename, path, p, q, DIC, Chain, timescaleChain, LnPosterior):
 					line += '%+16.15e '%(timescaleChain[dimNum, walkerNum, stepNum])
 				line += '%+16.15e\n'%(LnPosterior[walkerNum, stepNum])
 				fileOut.write(line)
+
+def plotkde(p, q, Chain, kernel = 'epanechnikov', bwidth = None, dim1 = 0, dim2 = 1, nbins = 100, pointsPerDim = 100):
+	ndims = Chain.shape[0]
+	nwalkers = Chain.shape[1]
+	nsteps = Chain.shape[2]
+	divisors = np.zeros(ndims)
+	flatChain = np.swapaxes(copy.copy(Chain[:,:,nsteps/2:]).reshape((ndims,-1), order = 'F'), axis1 = 0, axis2 = 1)
+	for dim in xrange(ndims):
+		divisors[dim] = np.mean(flatChain[:,dim])
+		flatChain[:,dim] /= divisors[dim]
+	if bwidth is None:
+		print 'Finding optimal bandwidth...'
+		startOpt = time.time()
+		grid = GridSearchCV(KernelDensity(kernel = kernel), {'bandwidth': np.linspace(0.01, 1.0, 10)}, cv=10) # 20-fold cross-validation
+		grid.fit(flatChain)
+		stopOpt = time.time()
+		bwidth = grid.best_params_['bandwidth']
+		print 'Optimal bandwidth is %f'%(bwidth)
+		totTime = stopOpt - startOpt
+		print 'Optimal bandwidth estimation by cross-validation took %3.2e sec = %3.2e min = %3.2e hrs'%(totTime, totTime/60.0, totTime/3600.0)
+	else:
+		bwidth = 0.1
+	kde = KernelDensity(kernel = kernel, bandwidth = bwidth).fit(flatChain)
+
+	xVec, yVec, Grid = _makeGrid(flatChain, dim1 = dim1, dim2 = dim2, pointsPerDim = pointsPerDim)
+	Density = kde.score_samples(Grid)
+	Density2D = np.reshape(Density, (-1, pointsPerDim))
+
+	plt.figure(-5, figsize = (fwid, fwid))
+	levels = MaxNLocator(nbins = nbins).tick_values(np.nanmin(Density[np.where(np.isinf(Density) == False)]), np.nanmax(Density))
+	cmap = plt.get_cmap('Blues')
+	norm = BoundaryNorm(levels, ncolors = cmap.N, clip = True)
+	plt.contourf(xVec, yVec, Density2D, levels = levels, cmap = cmap)
+	plt.colorbar()
+	plt.scatter(flatChain[:,0], flatChain[:,1], marker = '.', color = '#000000')
+
+	if dim1 < p + q:
+		plt.xlabel(r'$\frac{\tau_{%d}}{%+4.3e}$'%(dim1+1, divisors[dim1]))
+	elif dim1 == p + q:
+		plt.xlabel(r'$\frac{\mathrm{Amp.}}{%+4.3e}$'%(divisors[dim1]))
+	if dim2 < p + q:
+		plt.ylabel(r'$\frac{\tau_{%d}}{%+4.3e}$'%(dim2+1, divisors[dim2]))
+	elif dim2 == p + q:
+		plt.ylabel(r'$\frac{\mathrm{Amp.}}{%+4.3e}$'%(divisors[dim2]))
+
+	plt.tight_layout()
+	pdb.set_trace()
+
+def _makeGrid(flatChain, dim1 = 0, dim2 = 1, pointsPerDim = 100):
+	ndims = flatChain.shape[1]
+	Grid = np.zeros((int(math.pow(pointsPerDim, ndims)), ndims))
+	minVal1 = 0.95*np.min(flatChain[:,dim1])
+	maxVal1 = 1.05*np.max(flatChain[:,dim1])
+	minVal2 = 0.95*np.min(flatChain[:,dim2])
+	maxVal2 = 1.05*np.max(flatChain[:,dim2])
+	xVec = np.linspace(start = minVal1, stop = maxVal1, num = pointsPerDim)
+	yVec = np.linspace(start = minVal2, stop = maxVal2, num = pointsPerDim)
+	for i in xrange(pointsPerDim):
+		for j in xrange(pointsPerDim):
+			Grid[j+i*pointsPerDim,dim1] = minVal1 + j*((maxVal1 - minVal1)/pointsPerDim)
+			Grid[j+i*pointsPerDim,dim2] = minVal2 + i*((maxVal2 - minVal2)/pointsPerDim)
+	return xVec, yVec, Grid
 
 def _readCRTS(filename, path):
 	filePath = os.path.join(path, filename)
@@ -131,6 +206,11 @@ if __name__ == '__main__':
 	parser.add_argument('--save', dest = 'save', action = 'store_true', help = r'Save MCMC files?')
 	parser.add_argument('--no-save', dest = 'save', action = 'store_false', help = r'Do not save MCMC files?')
 	parser.set_defaults(save = True)
+	parser.add_argument('--kde', dest = 'kde', action = 'store_true', help = r'Compute KDE estimate?')
+	parser.add_argument('--no-kde', dest = 'kde', action = 'store_false', help = r'Do not compute KDE estimate?')
+	parser.set_defaults(kde = False)
+	parser.add_argument('-k', '--kernel', type = str, default = 'epanechnikov', help = r'KDE kernel to use')
+	parser.add_argument('-bw', '--bandwidth', type = float, default = 0.1, help = r'KDE bandwidth to use')
 	parser.add_argument('--fit', dest = 'fit', action = 'store_true', help = r'Fit CARMA model')
 	parser.add_argument('--no-fit', dest = 'fit', action = 'store_false', help = r'Do not fit CARMA model')
 	parser.set_defaults(fit = True)
@@ -157,14 +237,26 @@ if __name__ == '__main__':
 		raise ValueError('qMin must be greater than or equal to 0')
 
 	tIn, magIn, magerrIn, yIn, yerrIn, maskIn = _readCRTS(args.name + '.dat', args.pwd)
+	PG1302_102_Mag = libcarma.externalLC(name = args.name, band = args.band, t = tIn, y = magIn, yerr = magerrIn, mask = maskIn)
 	PG1302_102 = libcarma.externalLC(name = args.name, band = args.band, t = tIn, y = yIn, yerr = yerrIn, mask = maskIn)
+	PG1302_102_Mag.yunit = r'$m$ (V-band)'
 	PG1302_102.yunit = r'$F$ (Jy)'
 	PG1302_102.minTimescale = args.minTimescale
 	PG1302_102.maxTimescale = args.maxTimescale
 	PG1302_102.maxSigma = args.maxSigma
 
 	if args.savefig or args.show:
-		print 'Plotting light curve for %s'%(PG1302_102.name)
+		print 'Plotting %s-band magnitude light curve for %s'%(PG1302_102.band, PG1302_102.name)
+		figName = os.path.join(args.pwd,'%s_magLC.jpg'%(PG1302_102_Mag.name))
+		if not os.path.isfile(figName):
+			PG1302_102_Mag.plot()
+			if args.savefig:
+				plt.savefig(figName, dpi = 1000)
+			if args.show:
+				plt.show()
+			plt.clf()
+
+		print 'Plotting %s-band flux light curve for %s'%(PG1302_102.band, PG1302_102.name)
 		figName = os.path.join(args.pwd,'%s_LC.jpg'%(PG1302_102.name))
 		if not os.path.isfile(figName):
 			PG1302_102.plot()
@@ -174,11 +266,12 @@ if __name__ == '__main__':
 				plt.show()
 			plt.clf()
 
+################################################## CARMA fitting #############################################
+
 	taskDict = dict()
 	DICDict= dict()
-
 	for p in xrange(args.pMin, args.pMax + 1):
-		for q in xrange(args.qMin, p):
+		for q in xrange(args.qMin, min(p, args.qMax)+1):
 			nt = libcarma.basicTask(p, q, nwalkers = args.nwalkers, nsteps = args.nsteps)
 
 			print 'Starting libcarma fitting for p = %d and q = %d...'%(p, q)
@@ -196,6 +289,13 @@ if __name__ == '__main__':
 
 			if args.save:
 				_writeResult(args.name, args.pwd, p, q, DIC, nt.Chain, nt.timescaleChain, nt.LnPosterior)
+
+			if args.kde:
+				plotkde(p, q, nt.timescaleChain, kernel = args.kernel, bwidth = args.bandwidth)
+				#plotkde(p, q, nt.timescaleChain, kernel = args.kernel) ## Takes forever!!!!!
+				if args.show:
+					plt.show()
+					pdb.set_trace()
 
 	sortedDICVals = sorted(DICDict.items(), key = operator.itemgetter(1))
 	pBest = int(sortedDICVals[0][0].split()[0])
@@ -248,7 +348,7 @@ if __name__ == '__main__':
 				plt.clf()
 
 	if args.savefig or args.show:
-		print 'Plotting the %s-band light curve of %s'%(PG1302_102.band, PG1302_102.name)
+		print 'Plotting the %s-band smoothed light curve of %s'%(PG1302_102.band, PG1302_102.name)
 		figName = os.path.join(args.pwd,'%s_smoothLC.jpg'%(PG1302_102.name))
 		if not os.path.isfile(figName):
 			Theta = bestTask.Chain[:, loc0, loc1]
@@ -273,6 +373,8 @@ if __name__ == '__main__':
 			if args.show:
 				plt.show()
 			plt.clf()
+
+########################################## done CARMA fitting ################################################
 
 	if args.stop:
 		pdb.set_trace()
