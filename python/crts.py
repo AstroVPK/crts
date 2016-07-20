@@ -17,10 +17,79 @@ except ImportError:
 class crtsLC(libcarma.basicLC):
 
 	def read(self, name, band = 'V', path = os.environ['CRTSDATADIR'], **kwargs):
+	
+		datasplit = []
+		IDs = []
+		rmags = []
+		runc = []
+		rmjd = []
+		uncf = []
+		mjdf = []
+		uncp = []
+		magsf = []
+		rblend = []
+		blend = []
+		t = []
+		y = []
+		yerr = []
+		x = []
+		mask = []
+		
 		### CODE here to open the data file ####
-
+		txt = open(path, 'r')
+		data = txt.read()
+		datasplit = data.split()
+		if (datasplit[0] == "MasterID"):
+			del datasplit[0:7]
+			
 		### CODE HERE to construct t, x, y, yerr, & mask + dt, T, startT + other properties you want to track.
-
+		for a in range (0, len(datasplit), 7):
+			IDs.append(datasplit[a])
+		for b in range (1, len(datasplit), 7):	
+			rmags.append(datasplit[b])
+		for c in range (2, len(datasplit), 7):
+			runc.append(datasplit[c])
+		for d in range (5, len(datasplit), 7):
+			rmjd.append(datasplit[d])
+		for e in range (6, len(datasplit), 7):
+			rblend.append(datasplit[e])
+			
+		for f in range (len(rblend)):
+			x.append(0)
+			
+		for l in range (len(rmags)):
+			a = float(rmags[l])
+			magsf.append(a)
+		for m in range (len(runc)):
+			b = float(runc[m])
+			uncf.append(b)
+		for n in range (len(rmjd)):
+			c = float(rmjd[n])
+			mjdf.append(c)
+		for o in range (len(rblend)):
+			d = int(rblend[o])
+			blend.append(d)
+			
+		for u in range (len(mjdf)):
+			t.append(mjdf[u]-mjdf[0])
+		for v in range (len(magsf)):
+			y, yerr = libcarma.pogsonFlux(magsf[v], uncf[v])
+			y.append(y)
+			yerr.append(yerr)
+		
+		for w in range (len(blend)):
+			if blend[w] == 0:
+				mask.append(1)
+			else:
+				mask.append(0)
+		
+		np.asarray(mask)
+		np.asarray(t)
+		np.asarray(y)
+		np.asarray(yerr)
+		np.asarray(x)
+		dt = t[1] - t[0]
+	
 
 		### Boilerplate follows - you don't have to mess with it
 		self._computedCadenceNum = -1
