@@ -17,7 +17,15 @@ except ImportError:
 class crtsLC(libcarma.basicLC):
 
 	def read(self, name, band, path, **kwargs):
-	
+
+		fullPath = os.path.join(path, name)
+		with open(fullPath, 'rb') as fileOpen:
+			allLines = fileOpen.readlines()
+		allLines = [line.rstrip('\n') for line in allLines]
+		self.numCadences = len(allLines) - 1
+		for i in xrange(1, self.numCadences)
+			splitLine = re.split(r'[ ,|;"]+', allLines[i])
+
 		datasplit = []
 		IDs = []
 		rmags = []
