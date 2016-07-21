@@ -16,7 +16,7 @@ except ImportError:
 
 class crtsLC(libcarma.basicLC):
 
-	def read(self, name, band = 'V', path = os.environ['CRTSDATADIR'], **kwargs):
+	def read(self, name, band, path, **kwargs):
 	
 		datasplit = []
 		IDs = []
@@ -30,12 +30,13 @@ class crtsLC(libcarma.basicLC):
 		rblend = []
 		blend = []
 		t = []
-		y = []
-		yerr = []
+		yarray = []
+		yerrarray = []
 		x = []
 		mask = []
 		
 		### CODE here to open the data file ####
+		#path = input('file here --> ')
 		txt = open(path, 'r')
 		data = txt.read()
 		datasplit = data.split()
@@ -74,8 +75,8 @@ class crtsLC(libcarma.basicLC):
 			t.append(mjdf[u]-mjdf[0])
 		for v in range (len(magsf)):
 			y, yerr = libcarma.pogsonFlux(magsf[v], uncf[v])
-			y.append(y)
-			yerr.append(yerr)
+			yarray.append(y)
+			yerrarray.append(yerr)
 		
 		for w in range (len(blend)):
 			if blend[w] == 0:
@@ -83,12 +84,22 @@ class crtsLC(libcarma.basicLC):
 			else:
 				mask.append(0)
 		
-		np.asarray(mask)
-		np.asarray(t)
-		np.asarray(y)
-		np.asarray(yerr)
-		np.asarray(x)
+		self.mask = np.require(np.array(mask))
+		self.t = np.require(np.array(t))
+		self.yarray = np.require(np.array(yarray))
+		self.yerrarray = np.require(np.array(yerrarray))
+		self.x = np.require(np.array(x))
 		dt = t[1] - t[0]
+		
+		'''print mask[:]
+		print '-'*20
+		print t[:]
+		print '-'*20
+		print yarray[:]
+		print '-'*20
+		print yerrarray[:]
+		print '-'*20
+		print x[:]'''
 	
 
 		### Boilerplate follows - you don't have to mess with it
@@ -145,14 +156,10 @@ class crtsLC(libcarma.basicLC):
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
-	parser.add_argument('-id', '--ID', type = str, default = '205905563', help = r'EPIC ID')
-	parser.add_argument('-p', '--processing', type = str, default = 'sap', help = r'sap/pdcsap/k2sff/k2sc/k2varcat etc...')
-	parser.add_argument('-c', '--campaign', type = str, default = 'c03', help = r'Campaign')
-	parser.add_argument('-goid', '--goID', type = str, default = '', help = r'Guest Observer ID')
-	parser.add_argument('-gopi', '--goPI', type = str, default = '', help = r'Guest Observer PI')
+	parser.add_argument('-n', '--name', type = str, default = 'PG1302102', help = r'Object name')
 	args = parser.parse_args()
 
-	LC = crtsLC(name = args.ID, band = 'V')
+	LC = crtsLC(name = args.name, band = 'V')
 
 	LC.plot()
 	LC.plotacf()
