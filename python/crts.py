@@ -4,6 +4,7 @@ import urllib, urllib2
 import os as os
 import sys as sys
 import subprocess
+import re
 import argparse
 import matplotlib.pyplot as plt
 import pdb
@@ -16,75 +17,60 @@ except ImportError:
 
 class crtsLC(libcarma.basicLC):
 
-	def read(self, name, band, path, **kwargs):
-
-		fullPath = os.path.join(path, name)
+	def read(self, name, band = r'V', path = None, **kwargs):
+		if path is None:
+			try:
+				path = os.environ['CRTSDATADIR']
+			except KeyError:
+				raise KeyError('Environment variable "CRTSDATADIR" not set! Please set "CRTSDATADIR" to point where all CRTS data should live first...')
+		self.z = kwargs.get('z', 0.0)
+		extension = kwargs.get('extension', '.txt')
+		fullPath = os.path.join(path, name + extension)
 		with open(fullPath, 'rb') as fileOpen:
 			allLines = fileOpen.readlines()
 		allLines = [line.rstrip('\n') for line in allLines]
-		self.numCadences = len(allLines) - 1
-		for i in xrange(1, self.numCadences)
+		masterID = list()
+		Mag = list()
+		Magerr = list()
+		Flux = list()
+		Fluxerr = list()
+		RA = list()
+		Dec = list()
+		MJD = list()
+		for i in xrange(1, len(allLines)-1):
 			splitLine = re.split(r'[ ,|]+', allLines[i])
+			if int(splitLine[6]) == 0:
+				masterID.append(int(splitLine[0]))
+				Mag.append(float(splitLine[1]))
+				Magerr.append(float(splitLine[2]))
+				flux, fluxerr = libcarma.pogsonFlux(float(splitLine[1]), float(splitLine[2]))
+				Flux.append(flux)
+				Fluxerr.append(fluxerr)
+				RA.append(float(splitLine[3]))
+				Dec.append(float(splitLine[4]))
+				MJD.append(float(splitLine[5]))
+		self._numCadences = len(MJD)
+		zipped = zip(MJD, masterID, Mag, Magerr, Flux, Fluxerr, RA, Dec)
+		zipped.sort()
+		MJD, masterID, Mag, Magerr, Flux, Fluxerr, RA, Dec = zip(*zipped)
+		self.startT = MJD[0]
+		MJD = [(mjd - MJD[0])/(1.0 + self.z) for mjd in MJD]
+		if self.z == 0.0:
+			self.z = r'NO REDSHIFT'
 
-		
-		IDs = []
-		mags = []
-		unc = []
-		mjd = []
-		blend = []
-		x = []
-		t = []
-		y = []
-		yerr = []
-		mask = []
-		
-		### CODE here to open the data file ####
-		#path = input('file here --> ')
-		#txt = open(path, 'r')
-		#data = txt.read()
-		#datasplit = data.split()
-		#if (datasplit[0] == "MasterID"):
-		#	del datasplit[0:7]
-			
-		### CODE HERE to construct t, x, y, yerr, & mask + dt, T, startT + other properties you want to track.
-		IDs = [splitLine[a] for a in range(0, self.numCadences, 7)]
-		mags = [float(splitLine[a]) for a in range(1, self.numCadences, 7)]
-		unc = [float(splitLine[a]) for a in range(2, self.numCadences, 7)]
-		mjd = [float(splitLine[a]) for a in range(5, self.numCadences, 7)]
-		blend = [int(splitLine[a]) for a in range(6, self.numCadences, 7)]
-		x = [0 for a in range (self.numCadences)]
-		t = [mjd[a]-mjd[0] for a in range(self.numCadences)]
-			
-		for v in range (self.numCadences):
-			yValue, yerrValue = libcarma.pogsonFlux(mags[v], unc[v])
-			y.append(yValue)
-			yerr.append(yerrValue)
-		
-		for w in range (numCadences):
-			if blend[w] == 0:
-				mask.append(1)
-			else:
-				mask.append(0)
-		
-		self.mask = np.require(np.array(mask))
-		self.t = np.require(np.array(t))
-		self.yarray = np.require(np.array(y))
-		self.yerrarray = np.require(np.array(yerr))
-		self.x = np.require(np.array(x))
-		dt = t[1] - t[0]
-		
-		'''print mask[:]
-		print '-'*20
-		print t[:]
-		print '-'*20
-		print yarray[:]
-		print '-'*20
-		print yerrarray[:]
-		print '-'*20
-		print x[:]'''
-	
+		self.mask = np.require(np.array(self._numCadences*[1.0]), requirements=['F', 'A', 'W', 'O', 'E'])
+		self.t = np.require(np.array(MJD), requirements=['F', 'A', 'W', 'O', 'E'])
+		self.y = np.require(np.array(Flux), requirements=['F', 'A', 'W', 'O', 'E'])
+		self.yerr = np.require(np.array(Fluxerr), requirements=['F', 'A', 'W', 'O', 'E'])
+		self.x = np.require(np.array(self._numCadences*[0.0]), requirements=['F', 'A', 'W', 'O', 'E'])
+		self.mag = np.require(np.array(Mag), requirements=['F', 'A', 'W', 'O', 'E'])
+		self.magerr = np.require(np.array(Magerr), requirements=['F', 'A', 'W', 'O', 'E'])
+		self.RA = np.require(np.array(RA), requirements=['F', 'A', 'W', 'O', 'E'])
+		self.Dec = np.require(np.array(Dec), requirements=['F', 'A', 'W', 'O', 'E'])
+		self.masterID = np.require(np.array(masterID), requirements=['F', 'A', 'W', 'O', 'E'])
+		self._dt = float(self.t[1] - self.t[0])
+		self._T = float(self.t[-1] - self.t[0])
 
-		### Boilerplate follows - you don't have to mess with it
 		self._computedCadenceNum = -1
 		self._tolIR = 1.0e-3
 		self._fracIntrinsicVar = 0.0
@@ -98,7 +84,7 @@ class crtsLC(libcarma.basicLC):
 		self._qComp = 0
 		self._isSmoothed = False ## Has the LC been smoothed?
 		self._dtSmooth = 0.0
-		self._isRegular = True
+		self._isRegular = False
 		self.XSim = np.require(np.zeros(self.pSim), requirements=['F', 'A', 'W', 'O', 'E']) ## State of light curve at last timestamp
 		self.PSim = np.require(np.zeros(self.pSim*self.pSim), requirements=['F', 'A', 'W', 'O', 'E']) ## Uncertainty in state of light curve at last timestamp.
 		self.XComp = np.require(np.zeros(self.pComp), requirements=['F', 'A', 'W', 'O', 'E']) ## State of light curve at last timestamp
@@ -106,7 +92,6 @@ class crtsLC(libcarma.basicLC):
 		self._name = str(name) ## The name of the light curve (usually the object's name).
 		self._band = str(r'V') ## The name of the photometric band (eg. HSC-I or SDSS-g etc..).
 		self._xunit = r'$d$' ## Unit in which time is measured (eg. s, sec, seconds etc...).
-		#self._yunit = r'who the f*** knows?' ## Unit in which the flux is measured (eg Wm^{-2} etc...).
 		self._yunit = r'$F$ (Jy)' ## Unit in which the flux is measured (eg Wm^{-2} etc...).
 
 		count = int(np.sum(self.mask))
@@ -138,7 +123,10 @@ class crtsLC(libcarma.basicLC):
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
-	parser.add_argument('-n', '--name', type = str, default = 'PG1302102', help = r'Object name')
+	parser.add_argument(r'-n', r'--name', type = str, default = r'PG1302102', help = r'Object name')
+	parser.add_argument(r'-z', r'--redShift', type = float, default = 0.2784, help = r'Object redshift')
+	#parser.add_argument(r'-n', r'--name', type = str, default = r'OH287', help = r'Object name')
+	#parser.add_argument(r'-z', r'--redShift', type = float, default = 0.305, help = r'Object redshift')
 	args = parser.parse_args()
 
 	LC = crtsLC(name = args.name, band = 'V')
