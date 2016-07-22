@@ -24,69 +24,43 @@ class crtsLC(libcarma.basicLC):
 		allLines = [line.rstrip('\n') for line in allLines]
 		self.numCadences = len(allLines) - 1
 		for i in xrange(1, self.numCadences)
-			splitLine = re.split(r'[ ,|;"]+', allLines[i])
+			splitLine = re.split(r'[ ,|]+', allLines[i])
 
-		datasplit = []
+		
 		IDs = []
-		rmags = []
-		runc = []
-		rmjd = []
-		uncf = []
-		mjdf = []
-		uncp = []
-		magsf = []
-		rblend = []
+		mags = []
+		unc = []
+		mjd = []
 		blend = []
-		t = []
-		yarray = []
-		yerrarray = []
 		x = []
+		t = []
+		y = []
+		yerr = []
 		mask = []
 		
 		### CODE here to open the data file ####
 		#path = input('file here --> ')
-		txt = open(path, 'r')
-		data = txt.read()
-		datasplit = data.split()
-		if (datasplit[0] == "MasterID"):
-			del datasplit[0:7]
+		#txt = open(path, 'r')
+		#data = txt.read()
+		#datasplit = data.split()
+		#if (datasplit[0] == "MasterID"):
+		#	del datasplit[0:7]
 			
 		### CODE HERE to construct t, x, y, yerr, & mask + dt, T, startT + other properties you want to track.
-		for a in range (0, len(datasplit), 7):
-			IDs.append(datasplit[a])
-		for b in range (1, len(datasplit), 7):	
-			rmags.append(datasplit[b])
-		for c in range (2, len(datasplit), 7):
-			runc.append(datasplit[c])
-		for d in range (5, len(datasplit), 7):
-			rmjd.append(datasplit[d])
-		for e in range (6, len(datasplit), 7):
-			rblend.append(datasplit[e])
+		IDs = [splitLine[a] for a in range(0, self.numCadences, 7)]
+		mags = [float(splitLine[a]) for a in range(1, self.numCadences, 7)]
+		unc = [float(splitLine[a]) for a in range(2, self.numCadences, 7)]
+		mjd = [float(splitLine[a]) for a in range(5, self.numCadences, 7)]
+		blend = [int(splitLine[a]) for a in range(6, self.numCadences, 7)]
+		x = [0 for a in range (self.numCadences)]
+		t = [mjd[a]-mjd[0] for a in range(self.numCadences)]
 			
-		for f in range (len(rblend)):
-			x.append(0)
-			
-		for l in range (len(rmags)):
-			a = float(rmags[l])
-			magsf.append(a)
-		for m in range (len(runc)):
-			b = float(runc[m])
-			uncf.append(b)
-		for n in range (len(rmjd)):
-			c = float(rmjd[n])
-			mjdf.append(c)
-		for o in range (len(rblend)):
-			d = int(rblend[o])
-			blend.append(d)
-			
-		for u in range (len(mjdf)):
-			t.append(mjdf[u]-mjdf[0])
-		for v in range (len(magsf)):
-			y, yerr = libcarma.pogsonFlux(magsf[v], uncf[v])
-			yarray.append(y)
-			yerrarray.append(yerr)
+		for v in range (self.numCadences):
+			yValue, yerrValue = libcarma.pogsonFlux(mags[v], unc[v])
+			y.append(yValue)
+			yerr.append(yerrValue)
 		
-		for w in range (len(blend)):
+		for w in range (numCadences):
 			if blend[w] == 0:
 				mask.append(1)
 			else:
@@ -94,8 +68,8 @@ class crtsLC(libcarma.basicLC):
 		
 		self.mask = np.require(np.array(mask))
 		self.t = np.require(np.array(t))
-		self.yarray = np.require(np.array(yarray))
-		self.yerrarray = np.require(np.array(yerrarray))
+		self.yarray = np.require(np.array(y))
+		self.yerrarray = np.require(np.array(yerr))
 		self.x = np.require(np.array(x))
 		dt = t[1] - t[0]
 		
