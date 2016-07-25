@@ -38,9 +38,9 @@ class crtsLC(libcarma.basicLC):
 		Dec = list()
 		MJD = list()
 		for i in xrange(1, len(allLines)-1):
-			splitLine = re.split(r'[ ,|]+', allLines[i])
+			splitLine = re.split(r'[ ,|\t]+', allLines[i])
 			if int(splitLine[6]) == 0:
-				masterID.append(int(splitLine[0]))
+				masterID.append(int(float(splitLine[0])))
 				Mag.append(float(splitLine[1]))
 				Magerr.append(float(splitLine[2]))
 				flux, fluxerr = libcarma.pogsonFlux(float(splitLine[1]), float(splitLine[2]))
