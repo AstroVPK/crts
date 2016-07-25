@@ -124,12 +124,12 @@ class crtsLC(libcarma.basicLC):
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument(r'-n', r'--name', type = str, default = r'PG1302102', help = r'Object name')
-	parser.add_argument(r'-z', r'--redShift', type = float, default = 0.2784, help = r'Object redshift')
+	parser.add_argument(r'-z', r'--z', type = float, default = 0.2784, help = r'Object redshift')
 	#parser.add_argument(r'-n', r'--name', type = str, default = r'OH287', help = r'Object name')
 	#parser.add_argument(r'-z', r'--redShift', type = float, default = 0.305, help = r'Object redshift')
 	args = parser.parse_args()
 
-	LC = crtsLC(name = args.name, band = 'V')
+	LC = crtsLC(name = args.name, band = 'V', z = args.z)
 
 	LC.plot()
 	LC.plotacf()
