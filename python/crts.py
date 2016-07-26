@@ -25,6 +25,7 @@ class crtsLC(libcarma.basicLC):
 				raise KeyError('Environment variable "CRTSDATADIR" not set! Please set "CRTSDATADIR" to point where all CRTS data should live first...')
 		self.z = kwargs.get('z', 0.0)
 		extension = kwargs.get('extension', '.txt')
+		source = kwargs.get('source', 'batch')
 		fullPath = os.path.join(path, name + extension)
 		with open(fullPath, 'rb') as fileOpen:
 			allLines = fileOpen.readlines()
