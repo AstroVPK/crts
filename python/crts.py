@@ -69,7 +69,10 @@ class crtsLC(libcarma.basicLC):
 		self.RA = np.require(np.array(RA), requirements=['F', 'A', 'W', 'O', 'E'])
 		self.Dec = np.require(np.array(Dec), requirements=['F', 'A', 'W', 'O', 'E'])
 		self.masterID = np.require(np.array(masterID), requirements=['F', 'A', 'W', 'O', 'E'])
-		self._dt = float(np.nanmean(self.t[1:] - self.t[:-1]))
+		self._dt = float(self.t[1] - self.t[0])
+		self._mindt = float(np.nanmin(self.t[1:] - self.t[:-1]))
+		self._maxdt = float(np.nanmax(self.t[1:] - self.t[:-1]))
+		self._meandt = float(np.nanmean(self.t[1:] - self.t[:-1]))
 		self._T = float(self.t[-1] - self.t[0])
 
 		self._computedCadenceNum = -1
