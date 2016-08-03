@@ -1,6 +1,7 @@
+import os as os
+import sys as sys
+
 def splitDoc(name, path = None, **kwargs):
-	import os as os
-	import sys as sys
 	
 	if path is None:
 		try:
@@ -12,15 +13,20 @@ def splitDoc(name, path = None, **kwargs):
 	with open(fullPath, 'rb') as fileOpen:
 		allLines = fileOpen.readlines()
 	allLines = [line.rstrip('\n') for line in allLines]
-	ID = '0'
+	inputID = '0'
 	for i in xrange(1, len(allLines)-1):
 		splitLine = allLines[i].split(',')
-		if splitLine[1] != ID:
+		if splitLine[0] != inputID:
 			inputID = splitLine[0]
-			ID = splitLine[1]
 			newFile = os.path.join(os.environ['CRTSDATADIR'], inputID + '.txt')
 			file = open(newFile, 'a')
-			file.write(allLines[i])
+			file.write("MasterID,Mag,Magerr,RA,Dec,MJD,Blend\n")
+			for j in range (1, len(splitLine)-1):
+				file.write(splitLine[j] + ',')
+			file.write(splitLine[-1])
 			file.write('\n')
-		file.write(allLines[i])
-		file.write('\n')
+		else:
+			for j in range (1, len(splitLine)-1):
+				file.write(splitLine[j] + ',')
+			file.write(splitLine[-1])
+			file.write('\n')
