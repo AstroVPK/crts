@@ -107,14 +107,12 @@ for pVal in xrange(args.pMin, args.pMax + 1):
         DICDict['kali.carma %d %d'%(pVal, qVal)] = carmaTask.dic
         res = carmaTask.plottriangle()
         res[0][0].savefig(os.path.join(outDir, 'kali.carma_%d_%d_sto%s'%(pVal, qVal, ext)))
-        loc0 = np.where(carmaTask.LnPosterior == np.max(carmaTask.LnPosterior))[0][0]
-        loc1 = np.where(carmaTask.LnPosterior == np.max(carmaTask.LnPosterior))[1][0]
-        theta_carma = copy.copy(carmaTask.Chain[:, loc0, loc1])
+        theta_carma = carmaTask.bestTheta
         bestCarmaTask = kali.carma.CARMATask(p=pVal, q=qVal, nthreads=args.nthreads,
                                              maxEvals=args.maxEvals, nwalkers=args.nwalkers,
                                              nsteps=args.nsteps)
         bestCarmaTask.set(Obj.dt, theta_carma)
-        bestCarmaTask.smooth(Obj)
+        bestCarmaTask.smooth(Obj, stopT=Obj.t[-1]*1.5)
         res = Obj.plot()
         res.savefig(os.path.join(outDir, 'kali.carma_%d_%d_lc%s'%(pVal, qVal, ext)))
 
@@ -136,14 +134,12 @@ for pVal in xrange(args.pMin, args.pMax + 1):
         res[0][0].savefig(os.path.join(outDir, 'kali.mbhbcarma_%d_%d_sto%s'%(pVal, qVal, ext)))
         res[1][0].savefig(os.path.join(outDir, 'kali.mbhbcarma_%d_%d_orb%s'%(pVal, qVal, ext)))
         res[2][0].savefig(os.path.join(outDir, 'kali.mbhbcarma_%d_%d_aux%s'%(pVal, qVal, ext)))
-        loc0 = np.where(mbhbcarmaTask.LnPosterior == np.max(mbhbcarmaTask.LnPosterior))[0][0]
-        loc1 = np.where(mbhbcarmaTask.LnPosterior == np.max(mbhbcarmaTask.LnPosterior))[1][0]
-        theta_mbhbcarma = copy.copy(mbhbcarmaTask.Chain[:, loc0, loc1])
+        theta_mbhbcarma = mbhbcarmaTask.bestTheta
         bestMBHBCarmaTask = kali.mbhbcarma.MBHBCARMATask(p=pVal, q=qVal, nthreads=args.nthreads,
                                                          maxEvals=args.maxEvals, nwalkers=args.nwalkers,
                                                          nsteps=args.nsteps)
         bestMBHBCarmaTask.set(Obj.dt, theta_mbhbcarma)
-        bestMBHBCarmaTask.smooth(Obj)
+        bestMBHBCarmaTask.smooth(Obj, stopT=Obj.t[-1]*1.5)
         res = Obj.plot()
         res.savefig(os.path.join(outDir, 'kali.mbhbcarma_%d_%d_lc%s'%(pVal, qVal, ext)))
 
@@ -160,9 +156,7 @@ res[0][0].savefig(os.path.join(outDir, '_%s_best_%d_%d_sto%s'%(modelBest, pBest,
 if modelBest == 'kali.mbhbcarma':
     res[1][0].savefig(os.path.join(outDir, '_%s_best_%d_%d_orb%s'%(modelBest, pBest, qBest, ext)))
     res[2][0].savefig(os.path.join(outDir, '_%s_best_%d_%d_aux%s'%(modelBest, pBest, qBest, ext)))
-loc0 = np.where(bestTask.LnPosterior == np.max(bestTask.LnPosterior))[0][0]
-loc1 = np.where(bestTask.LnPosterior == np.max(bestTask.LnPosterior))[1][0]
-theta_best = copy.copy(bestTask.Chain[:, loc0, loc1])
+theta_best = bestTask.bestTheta
 if modelBest == 'kali.carma':
     optTask = kali.carma.CARMATask(p=pVal, q=qVal, nthreads=args.nthreads,
                                    maxEvals=args.maxEvals, nwalkers=args.nwalkers,
@@ -172,7 +166,7 @@ elif modelBest == 'kali.mbhbcarma':
                                            maxEvals=args.maxEvals, nwalkers=args.nwalkers,
                                            nsteps=args.nsteps)
 optTask.set(Obj.dt, theta_best)
-optTask.smooth(Obj)
+optTask.smooth(Obj, stopT=Obj.t[-1]*1.5)
 res = Obj.plot()
 res.savefig(os.path.join(outDir, '%s_best_%d_%d_lc%s'%(modelBest, pVal, qVal, ext)))
 if args.stop:
