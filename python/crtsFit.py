@@ -85,7 +85,7 @@ Obj.dtSmooth = Obj.dt
 taskDict = dict()
 DICDict = dict()
 
-outDir = os.path.join('/home/vish/Documents/Research/crtsData/', args.name)
+outDir = os.path.join(os.environ['CRTSDATADIR'], args.name)
 
 for pVal in xrange(args.pMin, args.pMax + 1):
     for qVal in xrange(args.qMin, args.qMax + 1):
