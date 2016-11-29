@@ -86,6 +86,10 @@ taskDict = dict()
 DICDict = dict()
 
 outDir = os.path.join(os.environ['CRTSDATADIR'], args.name)
+try:
+    os.stat(outDir)
+except:
+    os.mkdir(outDir)
 
 for pVal in xrange(args.pMin, args.pMax + 1):
     for qVal in xrange(args.qMin, args.qMax + 1):
