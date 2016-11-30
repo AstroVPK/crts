@@ -8,6 +8,7 @@ import sys
 import psutil
 import time
 import pdb
+import cPickle as pickle
 import platform
 
 from matplotlib import cm
@@ -55,6 +56,9 @@ parser.set_defaults(save=False)
 parser.add_argument('--pdf', dest='pdfYN', action='store_true', help=r'Save PDF figures?')
 parser.add_argument('--no-pdf', dest='pdfYN', action='store_false', help=r'Do not save PDF figures?')
 parser.set_defaults(pdfYN=False)
+parser.add_argument('--rerun', dest='rerun', action='store_true', help=r'Re-run fit?')
+parser.add_argument('--no-rerun', dest='rerun', action='store_false', help=r'Do not re-run fit?')
+parser.set_defaults(rerun=False)
 args = parser.parse_args()
 
 if not args.pdfYN:
@@ -91,22 +95,54 @@ try:
 except:
     os.mkdir(outDir)
 
+
+def fitCARMA(pVal, qVal, Obj, args):
+    carmaTask = kali.carma.CARMATask(p=pVal, q=qVal, nthreads=args.nthreads,
+                                     maxEvals=args.maxEvals, nwalkers=args.nwalkers,
+                                     nsteps=args.nsteps)
+    print 'Starting kali.carma fitting for p = %d and q = %d...'%(pVal, qVal)
+    startCARMATask = time.time()
+    carmaTask.fit(Obj)
+    stopCARMATask = time.time()
+    timeCARMATask = stopCARMATask - startCARMATask
+    print 'kali.carma took %4.3f s = %4.3f min = %4.3f hrs'%(timeCARMATask, timeCARMATask/60.0,
+                                                             timeCARMATask/3600.0)
+    pickle.dump(carmaTask, open(os.path.join(outDir, 'kali.carma.%d.%d.pkl'%(pVal, qVal)), 'wb'))
+    return carmaTask
+
+
+def fitMBHBCARMA(pVal, qVal, Obj, args):
+    mbhbcarmaTask = kali.mbhbcarma.MBHBCARMATask(p=pVal, q=qVal, nthreads=args.nthreads,
+                                                 maxEvals=args.maxEvals, nwalkers=args.nwalkers,
+                                                 nsteps=args.nsteps)
+    print 'Starting kali.mbhbcarma fitting for p = %d and q = %d...'%(pVal, qVal)
+    startMBHBCARMATask = time.time()
+    mbhbcarmaTask.fit(Obj)
+    stopMBHBCARMATask = time.time()
+    timeMBHBCARMATask = stopMBHBCARMATask - startMBHBCARMATask
+    print 'kali.mbhbcarma took %4.3f s = %4.3f min = %4.3f hrs'%(timeMBHBCARMATask,
+                                                                 timeMBHBCARMATask/60.0,
+                                                                 timeMBHBCARMATask/3600.0)
+    pickle.dump(mbhbcarmaTask, open(os.path.join(outDir, 'kali.mbhbcarma.%d.%d.pkl'%(pVal, qVal)), 'wb'))
+    return mbhbcarmaTask
+
+
 for pVal in xrange(args.pMin, args.pMax + 1):
     for qVal in xrange(args.qMin, args.qMax + 1):
-        carmaTask = kali.carma.CARMATask(p=pVal, q=qVal, nthreads=args.nthreads,
-                                         maxEvals=args.maxEvals, nwalkers=args.nwalkers, nsteps=args.nsteps)
-        print 'Starting kali.carma fitting for p = %d and q = %d...'%(pVal, qVal)
-        startCARMATask = time.time()
-        carmaTask.fit(Obj)
-        stopCARMATask = time.time()
-        timeCARMATask = stopCARMATask - startCARMATask
-        print 'kali.carma took %4.3f s = %4.3f min = %4.3f hrs'%(timeCARMATask, timeCARMATask/60.0,
-                                                                 timeCARMATask/3600.0)
-        print 'kali.carma (%d,%d) DIC: %+4.3e'%(pVal, qVal, carmaTask.dic)
+        if args.rerun:
+            carmaTask = fitCARMA(pVal, qVal, Obj, args)
+        else:
+            if os.path.isfile(os.path.join(outDir, 'kali.carma.%d.%d.pkl'%(pVal, qVal))):
+                print 'Restoring kali.carma task with p = %d and q = %d...'%(pVal, qVal)
+                carmaTask = pickle.load(open(os.path.join(outDir,
+                                                          'kali.carma.%d.%d.pkl'%(pVal, qVal)), 'rb'))
+            else:
+                carmaTask = fitCARMA(pVal, qVal, Obj, args)
+        print 'kali.carma.%d.%d DIC: %+4.3e'%(pVal, qVal, carmaTask.dic)
         taskDict['kali.carma %d %d'%(pVal, qVal)] = carmaTask
         DICDict['kali.carma %d %d'%(pVal, qVal)] = carmaTask.dic
         res = carmaTask.plottriangle()
-        res[0][0].savefig(os.path.join(outDir, 'kali.carma_%d_%d_sto%s'%(pVal, qVal, ext)))
+        res[0][0].savefig(os.path.join(outDir, 'kali.carma.%d.%d.sto%s'%(pVal, qVal, ext)))
         theta_carma = carmaTask.bestTheta
         bestCarmaTask = kali.carma.CARMATask(p=pVal, q=qVal, nthreads=args.nthreads,
                                              maxEvals=args.maxEvals, nwalkers=args.nwalkers,
@@ -114,26 +150,24 @@ for pVal in xrange(args.pMin, args.pMax + 1):
         bestCarmaTask.set(Obj.dt, theta_carma)
         bestCarmaTask.smooth(Obj, stopT=Obj.t[-1]*1.5)
         res = Obj.plot()
-        res.savefig(os.path.join(outDir, 'kali.carma_%d_%d_lc%s'%(pVal, qVal, ext)))
+        res.savefig(os.path.join(outDir, 'kali.carma.%d.%d.lc%s'%(pVal, qVal, ext)))
 
-        mbhbcarmaTask = kali.mbhbcarma.MBHBCARMATask(p=pVal, q=qVal, nthreads=args.nthreads,
-                                                     maxEvals=args.maxEvals, nwalkers=args.nwalkers,
-                                                     nsteps=args.nsteps)
-        print 'Starting kali.mbhbcarma fitting for p = %d and q = %d...'%(pVal, qVal)
-        startMBHBCARMATask = time.time()
-        mbhbcarmaTask.fit(Obj)
-        stopMBHBCARMATask = time.time()
-        timeMBHBCARMATask = stopMBHBCARMATask - startMBHBCARMATask
-        print 'kali.mbhbcarma took %4.3f s = %4.3f min = %4.3f hrs'%(timeMBHBCARMATask,
-                                                                     timeMBHBCARMATask/60.0,
-                                                                     timeMBHBCARMATask/3600.0)
+        if args.rerun:
+            mbhbcarmaTask = fitMBHBCARMA(pVal, qVal, Obj, args)
+        else:
+            if os.path.isfile(os.path.join(outDir, 'kali.mbhbcarma.%d.%d.pkl'%(pVal, qVal))):
+                print 'Restoring kali.mbhbcarma task with p = %d and q = %d...'%(pVal, qVal)
+                mbhbcarmaTask = pickle.load(open(os.path.join(outDir,
+                                                              'kali.mbhbcarma.%d.%d.pkl'%(pVal, qVal)), 'rb'))
+            else:
+                mbhbcarmaTask = fitMBHBCARMA(pVal, qVal, Obj, args)
         print 'kali.mbhbcarma (%d,%d) DIC: %+4.3e'%(pVal, qVal, mbhbcarmaTask.dic)
         taskDict['kali.mbhbcarma %d %d'%(pVal, qVal)] = mbhbcarmaTask
         DICDict['kali.mbhbcarma %d %d'%(pVal, qVal)] = mbhbcarmaTask.dic
         res = mbhbcarmaTask.plottriangle()
-        res[0][0].savefig(os.path.join(outDir, 'kali.mbhbcarma_%d_%d_sto%s'%(pVal, qVal, ext)))
-        res[1][0].savefig(os.path.join(outDir, 'kali.mbhbcarma_%d_%d_orb%s'%(pVal, qVal, ext)))
-        res[2][0].savefig(os.path.join(outDir, 'kali.mbhbcarma_%d_%d_aux%s'%(pVal, qVal, ext)))
+        res[0][0].savefig(os.path.join(outDir, 'kali.mbhbcarma.%d.%d.sto%s'%(pVal, qVal, ext)))
+        res[1][0].savefig(os.path.join(outDir, 'kali.mbhbcarma.%d.%d.orb%s'%(pVal, qVal, ext)))
+        res[2][0].savefig(os.path.join(outDir, 'kali.mbhbcarma.%d.%d.aux%s'%(pVal, qVal, ext)))
         theta_mbhbcarma = mbhbcarmaTask.bestTheta
         bestMBHBCarmaTask = kali.mbhbcarma.MBHBCARMATask(p=pVal, q=qVal, nthreads=args.nthreads,
                                                          maxEvals=args.maxEvals, nwalkers=args.nwalkers,
@@ -141,7 +175,7 @@ for pVal in xrange(args.pMin, args.pMax + 1):
         bestMBHBCarmaTask.set(Obj.dt, theta_mbhbcarma)
         bestMBHBCarmaTask.smooth(Obj, stopT=Obj.t[-1]*1.5)
         res = Obj.plot()
-        res.savefig(os.path.join(outDir, 'kali.mbhbcarma_%d_%d_lc%s'%(pVal, qVal, ext)))
+        res.savefig(os.path.join(outDir, 'kali.mbhbcarma.%d.%d.lc%s'%(pVal, qVal, ext)))
 
 sortedDICVals = sorted(DICDict.items(), key=operator.itemgetter(1))
 modelBest = str(sortedDICVals[0][0].split()[0])
@@ -152,10 +186,10 @@ bestTask = taskDict['%s %d %d'%(modelBest, pBest, qBest)]
 loc0 = np.where(bestTask.LnPosterior == np.max(bestTask.LnPosterior))[0][0]
 loc1 = np.where(bestTask.LnPosterior == np.max(bestTask.LnPosterior))[1][0]
 res = bestTask.plottriangle()
-res[0][0].savefig(os.path.join(outDir, '_%s_best_%d_%d_sto%s'%(modelBest, pBest, qBest, ext)))
+res[0][0].savefig(os.path.join(outDir, 'best_%s.%d.%d.sto%s'%(modelBest, pBest, qBest, ext)))
 if modelBest == 'kali.mbhbcarma':
-    res[1][0].savefig(os.path.join(outDir, '_%s_best_%d_%d_orb%s'%(modelBest, pBest, qBest, ext)))
-    res[2][0].savefig(os.path.join(outDir, '_%s_best_%d_%d_aux%s'%(modelBest, pBest, qBest, ext)))
+    res[1][0].savefig(os.path.join(outDir, 'best_%s.%d.%d.orb%s'%(modelBest, pBest, qBest, ext)))
+    res[2][0].savefig(os.path.join(outDir, 'best_%s.%d.%d.aux%s'%(modelBest, pBest, qBest, ext)))
 theta_best = bestTask.bestTheta
 if modelBest == 'kali.carma':
     optTask = kali.carma.CARMATask(p=pVal, q=qVal, nthreads=args.nthreads,
@@ -168,6 +202,6 @@ elif modelBest == 'kali.mbhbcarma':
 optTask.set(Obj.dt, theta_best)
 optTask.smooth(Obj, stopT=Obj.t[-1]*1.5)
 res = Obj.plot()
-res.savefig(os.path.join(outDir, '%s_best_%d_%d_lc%s'%(modelBest, pVal, qVal, ext)))
+res.savefig(os.path.join(outDir, 'best_%s.%d.%d.lc%s'%(modelBest, pVal, qVal, ext)))
 if args.stop:
     pdb.set_trace()
