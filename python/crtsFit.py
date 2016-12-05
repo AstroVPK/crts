@@ -91,7 +91,7 @@ Obj = kali.crts.crtsLC(name=args.name, band='V', z=args.z)
 Obj.minTimescale = args.minTimescale
 Obj.maxTimescale = args.maxTimescale
 Obj.maxSigma = args.maxSigma
-Obj.dtSmooth = Obj.dt
+Obj.dtSmooth = 0.5
 taskDict = dict()
 DICDict = dict()
 
@@ -114,7 +114,6 @@ def fitCARMA(pVal, qVal, Obj, args):
     print 'kali.carma took %4.3f s = %4.3f min = %4.3f hrs'%(timeCARMATask, timeCARMATask/60.0,
                                                              timeCARMATask/3600.0)
     pickle.dump(carmaTask, open(os.path.join(outDir, 'kali.carma.%d.%d.pkl'%(pVal, qVal)), 'wb'))
-    print 'kali.carma.%d.%d DIC: %+4.3e'%(pVal, qVal, carmaTask.dic)
     if args.plot:
         res = carmaTask.plottriangle()
         if args.save:
@@ -135,7 +134,6 @@ def fitMBHBCARMA(pVal, qVal, Obj, args):
                                                                  timeMBHBCARMATask/60.0,
                                                                  timeMBHBCARMATask/3600.0)
     pickle.dump(mbhbcarmaTask, open(os.path.join(outDir, 'kali.mbhbcarma.%d.%d.pkl'%(pVal, qVal)), 'wb'))
-    print 'kali.mbhbcarma (%d,%d) DIC: %+4.3e'%(pVal, qVal, mbhbcarmaTask.dic)
     if args.plot:
         res = mbhbcarmaTask.plottriangle()
         if args.save:
@@ -151,14 +149,15 @@ def fitMBHBCARMA(pVal, qVal, Obj, args):
 for pVal in xrange(args.pMin, args.pMax + 1):
     for qVal in xrange(args.qMin, args.qMax + 1):
         if args.rerun:
-            carmaTask, taskDict, DICDict = fitCARMA(pVal, qVal, Obj, args)
+            carmaTask = fitCARMA(pVal, qVal, Obj, args)
         else:
             if os.path.isfile(os.path.join(outDir, 'kali.carma.%d.%d.pkl'%(pVal, qVal))):
                 print 'Restoring kali.carma task with p = %d and q = %d...'%(pVal, qVal)
                 carmaTask = pickle.load(open(os.path.join(outDir,
                                                           'kali.carma.%d.%d.pkl'%(pVal, qVal)), 'rb'))
             else:
-                carmaTask, taskDict, DICDict = fitCARMA(pVal, qVal, Obj, args)
+                carmaTask = fitCARMA(pVal, qVal, Obj, args)
+        print 'kali.carma (%d,%d) DIC: %+4.3e'%(pVal, qVal, carmaTask.dic)
         taskDict['kali.carma %d %d'%(pVal, qVal)] = carmaTask
         DICDict['kali.carma %d %d'%(pVal, qVal)] = carmaTask.dic
         theta_carma = carmaTask.bestTheta
@@ -176,14 +175,15 @@ for pVal in xrange(args.pMin, args.pMax + 1):
             comp = Obj.plot(fig=100, colory=r'#000000', colors=[r'#a6611a', r'#dfc27d'])
 
         if args.rerun:
-            mbhbcarmaTask, taskDict, DICDict = fitMBHBCARMA(pVal, qVal, Obj, args)
+            mbhbcarmaTask = fitMBHBCARMA(pVal, qVal, Obj, args)
         else:
             if os.path.isfile(os.path.join(outDir, 'kali.mbhbcarma.%d.%d.pkl'%(pVal, qVal))):
                 print 'Restoring kali.mbhbcarma task with p = %d and q = %d...'%(pVal, qVal)
                 mbhbcarmaTask = pickle.load(open(os.path.join(outDir,
                                                               'kali.mbhbcarma.%d.%d.pkl'%(pVal, qVal)), 'rb'))
             else:
-                mbhbcarmaTask, taskDict, DICDict = fitMBHBCARMA(pVal, qVal, Obj, args)
+                mbhbcarmaTask = fitMBHBCARMA(pVal, qVal, Obj, args)
+        print 'kali.mbhbcarma (%d,%d) DIC: %+4.3e'%(pVal, qVal, mbhbcarmaTask.dic)
         taskDict['kali.mbhbcarma %d %d'%(pVal, qVal)] = mbhbcarmaTask
         DICDict['kali.mbhbcarma %d %d'%(pVal, qVal)] = mbhbcarmaTask.dic
         theta_mbhbcarma = mbhbcarmaTask.bestTheta
