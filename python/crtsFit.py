@@ -16,6 +16,7 @@ from matplotlib import cm
 try:
     import kali.crts
     import kali.carma
+    import kali.mbhb
     import kali.mbhbcarma
     import kali.util.triangle
 except ImportError:
@@ -87,6 +88,12 @@ if (args.pMin < 1):
 if (args.qMin < 0):
     raise ValueError('qMin must be greater than or equal to 0')
 
+outDir = os.path.join(os.environ['CRTSDATADIR'], args.name)
+try:
+    os.stat(outDir)
+except:
+    os.mkdir(outDir)
+
 Obj = kali.crts.crtsLC(name=args.name, band='V', z=args.z)
 Obj.minTimescale = args.minTimescale
 Obj.maxTimescale = args.maxTimescale
@@ -95,11 +102,10 @@ Obj.dtSmooth = 0.5
 taskDict = dict()
 DICDict = dict()
 
-outDir = os.path.join(os.environ['CRTSDATADIR'], args.name)
-try:
-    os.stat(outDir)
-except:
-    os.mkdir(outDir)
+if args.plot:
+    basic = Obj.plot(fig=100, colory=r'#000000')
+    if args.save:
+        basic.savefig(os.path.join(outDir, 'kali.lc%s'%(ext)), dpi=args.dpi)
 
 
 def fitCARMA(pVal, qVal, Obj, args):
@@ -119,6 +125,29 @@ def fitCARMA(pVal, qVal, Obj, args):
         if args.save:
             res[0][0].savefig(os.path.join(outDir, 'kali.carma.%d.%d.sto%s'%(pVal, qVal, ext)), dpi=args.dpi)
     return carmaTask
+
+
+def fitMBHB(Obj, args):
+    mbhbTask = kali.mbhb.MBHBTask(nthreads=args.nthreads,
+                                  maxEvals=args.maxEvals, nwalkers=args.nwalkers,
+                                  nsteps=args.nsteps)
+    print 'Starting kali.mbhb fitting for p = %d and q = %d...'%(0, 0)
+    startMBHBTask = time.time()
+    mbhbTask.fit(Obj)
+    stopMBHBTask = time.time()
+    timeMBHBTask = stopMBHBTask - startMBHBTask
+    print 'kali.mbhb took %4.3f s = %4.3f min = %4.3f hrs'%(timeMBHBTask,
+                                                            timeMBHBTask/60.0,
+                                                            timeMBHBTask/3600.0)
+    pickle.dump(mbhbTask, open(os.path.join(outDir, 'kali.mbhb.%d.%d.pkl'%(0, 0)), 'wb'))
+    if args.plot:
+        res = mbhbTask.plottriangle()
+        if args.save:
+            res[0][0].savefig(os.path.join(outDir, 'kali.mbhb.%d.%d.orb%s'%(0, 0, ext)),
+                              dpi=args.dpi)
+            res[1][0].savefig(os.path.join(outDir, 'kali.mbhb.%d.%d.aux%s'%(0, 0, ext)),
+                              dpi=args.dpi)
+    return mbhbTask
 
 
 def fitMBHBCARMA(pVal, qVal, Obj, args):
@@ -146,6 +175,32 @@ def fitMBHBCARMA(pVal, qVal, Obj, args):
     return mbhbcarmaTask
 
 
+if args.rerun:
+    mbhbTask = fitMBHB(Obj, args)
+else:
+    if os.path.isfile(os.path.join(outDir, 'kali.mbhb.%d.%d.pkl'%(0, 0))):
+        print 'Restoring kali.mbhb task with p = %d and q = %d...'%(0, 0)
+        mbhbTask = pickle.load(open(os.path.join(outDir,
+                                                 'kali.mbhb.%d.%d.pkl'%(0, 0)), 'rb'))
+    else:
+        mbhbTask = fitMBHB(Obj, args)
+print 'kali.mbhb (%d,%d) DIC: %+4.3e'%(0, 0, mbhbTask.dic)
+taskDict['kali.mbhb %d %d'%(0, 0)] = mbhbTask
+DICDict['kali.mbhb %d %d'%(0, 0)] = mbhbTask.dic
+theta_mbhb = mbhbTask.bestTheta
+bestMBHBTask = kali.mbhb.MBHBTask(nthreads=args.nthreads,
+                                  maxEvals=args.maxEvals, nwalkers=args.nwalkers,
+                                  nsteps=args.nsteps)
+bestMBHBTask.set(theta_mbhb)
+bestMBHBTask.smooth(Obj, stopT=(Obj.t[-1] + Obj.T*0.5))
+if args.plot:
+    res = Obj.plot(colory=r'#000000', colors=[r'#7b3294', r'#c2a5cf'])
+    if args.save:
+        res.savefig(os.path.join(outDir, 'kali.mbhb.%d.%d.lc%s'%(0, 0, ext)), dpi=args.dpi)
+
+if args.plot:
+    comp = Obj.plot(fig=100, colory=r'#000000', colors=[r'#7b3294', r'#c2a5cf'])
+
 for pVal in xrange(args.pMin, args.pMax + 1):
     for qVal in xrange(args.qMin, args.qMax + 1):
         if args.rerun:
@@ -165,14 +220,14 @@ for pVal in xrange(args.pMin, args.pMax + 1):
                                              maxEvals=args.maxEvals, nwalkers=args.nwalkers,
                                              nsteps=args.nsteps)
         bestCarmaTask.set(Obj.dt, theta_carma)
-        bestCarmaTask.smooth(Obj, stopT=Obj.t[-1]*1.5)
+        bestCarmaTask.smooth(Obj, stopT=(Obj.t[-1] + Obj.T*0.5))
         if args.plot:
             res = Obj.plot(colory=r'#000000', colors=[r'#a6611a', r'#dfc27d'])
             if args.save:
                 res.savefig(os.path.join(outDir, 'kali.carma.%d.%d.lc%s'%(pVal, qVal, ext)), dpi=args.dpi)
 
         if args.plot:
-            comp = Obj.plot(fig=100, colory=r'#000000', colors=[r'#a6611a', r'#dfc27d'])
+            comp = Obj.plot(fig=100, clearFig=False, colory=r'#000000', colors=[r'#a6611a', r'#dfc27d'])
 
         if args.rerun:
             mbhbcarmaTask = fitMBHBCARMA(pVal, qVal, Obj, args)
@@ -191,7 +246,7 @@ for pVal in xrange(args.pMin, args.pMax + 1):
                                                          maxEvals=args.maxEvals, nwalkers=args.nwalkers,
                                                          nsteps=args.nsteps)
         bestMBHBCarmaTask.set(Obj.dt, theta_mbhbcarma)
-        bestMBHBCarmaTask.smooth(Obj, stopT=Obj.t[-1]*1.5)
+        bestMBHBCarmaTask.smooth(Obj, stopT=(Obj.t[-1] + Obj.T*0.5))
         if args.plot:
             res = Obj.plot(colory=r'#000000', colors=[r'#018571', r'#80cdc1'])
             if args.save:
@@ -225,16 +280,22 @@ if args.plot:
             res[2][0].savefig(os.path.join(outDir, 'best_%s.%d.%d.aux%s'%(modelBest, pBest, qBest, ext)),
                               dpi=args.dpi)
 theta_best = bestTask.bestTheta
-if modelBest == 'kali.carma':
+if modelBest == 'kali.mbhb':
+    optTask = kali.mbhb.MBHBTask(nthreads=args.nthreads,
+                                 maxEvals=args.maxEvals, nwalkers=args.nwalkers,
+                                 nsteps=args.nsteps)
+    optTask.set(theta_best)
+elif modelBest == 'kali.carma':
     optTask = kali.carma.CARMATask(p=pVal, q=qVal, nthreads=args.nthreads,
                                    maxEvals=args.maxEvals, nwalkers=args.nwalkers,
                                    nsteps=args.nsteps)
+    optTask.set(Obj.dt, theta_best)
 elif modelBest == 'kali.mbhbcarma':
     optTask = kali.mbhbcarma.MBHBCARMATask(p=pVal, q=qVal, nthreads=args.nthreads,
                                            maxEvals=args.maxEvals, nwalkers=args.nwalkers,
                                            nsteps=args.nsteps)
-optTask.set(Obj.dt, theta_best)
-optTask.smooth(Obj, stopT=Obj.t[-1]*1.5)
+    optTask.set(Obj.dt, theta_best)
+optTask.smooth(Obj, stopT=(Obj.t[-1] + Obj.T*0.5))
 if args.plot:
     res = Obj.plot()
     if args.save:
