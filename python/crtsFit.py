@@ -120,10 +120,6 @@ def fitCARMA(pVal, qVal, Obj, args):
     print 'kali.carma took %4.3f s = %4.3f min = %4.3f hrs'%(timeCARMATask, timeCARMATask/60.0,
                                                              timeCARMATask/3600.0)
     pickle.dump(carmaTask, open(os.path.join(outDir, 'kali.carma.%d.%d.pkl'%(pVal, qVal)), 'wb'))
-    if args.plot:
-        res = carmaTask.plottriangle()
-        if args.save:
-            res[0][0].savefig(os.path.join(outDir, 'kali.carma.%d.%d.sto%s'%(pVal, qVal, ext)), dpi=args.dpi)
     return carmaTask
 
 
@@ -140,13 +136,6 @@ def fitMBHB(Obj, args):
                                                             timeMBHBTask/60.0,
                                                             timeMBHBTask/3600.0)
     pickle.dump(mbhbTask, open(os.path.join(outDir, 'kali.mbhb.%d.%d.pkl'%(0, 0)), 'wb'))
-    if args.plot:
-        res = mbhbTask.plottriangle()
-        if args.save:
-            res[0][0].savefig(os.path.join(outDir, 'kali.mbhb.%d.%d.orb%s'%(0, 0, ext)),
-                              dpi=args.dpi)
-            res[1][0].savefig(os.path.join(outDir, 'kali.mbhb.%d.%d.aux%s'%(0, 0, ext)),
-                              dpi=args.dpi)
     return mbhbTask
 
 
@@ -163,15 +152,6 @@ def fitMBHBCARMA(pVal, qVal, Obj, args):
                                                                  timeMBHBCARMATask/60.0,
                                                                  timeMBHBCARMATask/3600.0)
     pickle.dump(mbhbcarmaTask, open(os.path.join(outDir, 'kali.mbhbcarma.%d.%d.pkl'%(pVal, qVal)), 'wb'))
-    if args.plot:
-        res = mbhbcarmaTask.plottriangle()
-        if args.save:
-            res[0][0].savefig(os.path.join(outDir, 'kali.mbhbcarma.%d.%d.sto%s'%(pVal, qVal, ext)),
-                              dpi=args.dpi)
-            res[1][0].savefig(os.path.join(outDir, 'kali.mbhbcarma.%d.%d.orb%s'%(pVal, qVal, ext)),
-                              dpi=args.dpi)
-            res[2][0].savefig(os.path.join(outDir, 'kali.mbhbcarma.%d.%d.aux%s'%(pVal, qVal, ext)),
-                              dpi=args.dpi)
     return mbhbcarmaTask
 
 
@@ -185,6 +165,13 @@ else:
     else:
         mbhbTask = fitMBHB(Obj, args)
 print 'kali.mbhb (%d,%d) DIC: %+4.3e'%(0, 0, mbhbTask.dic)
+if args.plot:
+    res = mbhbTask.plottriangle()
+    if args.save:
+        res[0][0].savefig(os.path.join(outDir, 'kali.mbhb.%d.%d.orb%s'%(0, 0, ext)),
+                          dpi=args.dpi)
+        res[1][0].savefig(os.path.join(outDir, 'kali.mbhb.%d.%d.aux%s'%(0, 0, ext)),
+                          dpi=args.dpi)
 taskDict['kali.mbhb %d %d'%(0, 0)] = mbhbTask
 DICDict['kali.mbhb %d %d'%(0, 0)] = mbhbTask.dic
 theta_mbhb = mbhbTask.bestTheta
@@ -213,6 +200,11 @@ for pVal in xrange(args.pMin, args.pMax + 1):
             else:
                 carmaTask = fitCARMA(pVal, qVal, Obj, args)
         print 'kali.carma (%d,%d) DIC: %+4.3e'%(pVal, qVal, carmaTask.dic)
+        if args.plot:
+            res = carmaTask.plottriangle()
+            if args.save:
+                res[0][0].savefig(os.path.join(outDir, 'kali.carma.%d.%d.sto%s'%(pVal, qVal, ext)),
+                                  dpi=args.dpi)
         taskDict['kali.carma %d %d'%(pVal, qVal)] = carmaTask
         DICDict['kali.carma %d %d'%(pVal, qVal)] = carmaTask.dic
         theta_carma = carmaTask.bestTheta
@@ -239,6 +231,15 @@ for pVal in xrange(args.pMin, args.pMax + 1):
             else:
                 mbhbcarmaTask = fitMBHBCARMA(pVal, qVal, Obj, args)
         print 'kali.mbhbcarma (%d,%d) DIC: %+4.3e'%(pVal, qVal, mbhbcarmaTask.dic)
+        if args.plot:
+            res = mbhbcarmaTask.plottriangle()
+            if args.save:
+                res[0][0].savefig(os.path.join(outDir, 'kali.mbhbcarma.%d.%d.sto%s'%(pVal, qVal, ext)),
+                                  dpi=args.dpi)
+                res[1][0].savefig(os.path.join(outDir, 'kali.mbhbcarma.%d.%d.orb%s'%(pVal, qVal, ext)),
+                                  dpi=args.dpi)
+                res[2][0].savefig(os.path.join(outDir, 'kali.mbhbcarma.%d.%d.aux%s'%(pVal, qVal, ext)),
+                                  dpi=args.dpi)
         taskDict['kali.mbhbcarma %d %d'%(pVal, qVal)] = mbhbcarmaTask
         DICDict['kali.mbhbcarma %d %d'%(pVal, qVal)] = mbhbcarmaTask.dic
         theta_mbhbcarma = mbhbcarmaTask.bestTheta
