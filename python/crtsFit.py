@@ -168,10 +168,8 @@ print 'kali.mbhb (%d,%d) DIC: %+4.3e'%(0, 0, mbhbTask.dic)
 if args.plot:
     res = mbhbTask.plottriangle()
     if args.save:
-        res[0][0].savefig(os.path.join(outDir, 'kali.mbhb.%d.%d.orb%s'%(0, 0, ext)),
-                          dpi=args.dpi)
-        res[1][0].savefig(os.path.join(outDir, 'kali.mbhb.%d.%d.aux%s'%(0, 0, ext)),
-                          dpi=args.dpi)
+        res[0][0].savefig(os.path.join(outDir, 'kali.mbhb.%d.%d.orb%s'%(0, 0, ext)), dpi=args.dpi)
+        res[1][0].savefig(os.path.join(outDir, 'kali.mbhb.%d.%d.aux%s'%(0, 0, ext)), dpi=args.dpi)
 taskDict['kali.mbhb %d %d'%(0, 0)] = mbhbTask
 DICDict['kali.mbhb %d %d'%(0, 0)] = mbhbTask.dic
 theta_mbhb = mbhbTask.bestTheta
