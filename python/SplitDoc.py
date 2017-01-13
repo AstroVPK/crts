@@ -9,7 +9,7 @@ def splitDoc(name, path = None, **kwargs):
 		except KeyError:
 			raise KeyError('Environment variable "CRTSDATADIR" not set! Please set "CRTSDATADIR" to point where all CRTS data should live first...')
 	extension = kwargs.get('extension', '.txt')
-	fullPath = os.path.join(path, name + extension)
+	fullPath = os.path.join(path, '+Data', name + extension)
 	with open(fullPath, 'rb') as fileOpen:
 		allLines = fileOpen.readlines()
 	allLines = [line.rstrip('\n') for line in allLines]
