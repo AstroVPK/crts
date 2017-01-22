@@ -303,23 +303,8 @@ if args.plot:
             plt.close(res[1][0])
             if modelBest == 'kali.mbhbcarma':
                 plt.close(res[2][0])
-theta_best = bestTask.bestTheta
-if modelBest == 'kali.mbhb':
-    optTask = kali.mbhb.MBHBTask(0, 0, nthreads=args.nthreads,
-                                 maxEvals=args.maxEvals, nwalkers=args.nwalkers,
-                                 nsteps=args.nsteps)
-    optTask.set(theta_best)
-elif modelBest == 'kali.carma':
-    optTask = kali.carma.CARMATask(p=pVal, q=qVal, nthreads=args.nthreads,
-                                   maxEvals=args.maxEvals, nwalkers=args.nwalkers,
-                                   nsteps=args.nsteps)
-    optTask.set(Obj.dt, theta_best)
-elif modelBest == 'kali.mbhbcarma':
-    optTask = kali.mbhbcarma.MBHBCARMATask(p=pVal, q=qVal, nthreads=args.nthreads,
-                                           maxEvals=args.maxEvals, nwalkers=args.nwalkers,
-                                           nsteps=args.nsteps)
-    optTask.set(Obj.dt, theta_best)
-optTask.smooth(Obj, stopT=(Obj.t[-1] + Obj.T*0.5))
+bestTask.set(Obj.dt, bestTask.bestTheta)
+bestTask.smooth(Obj, stopT=(Obj.t[-1] + Obj.T*0.5))
 if args.plot:
     res = Obj.plot()
     if args.save:
