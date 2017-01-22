@@ -1,3 +1,5 @@
+import math
+import cmath
 import numpy as np
 import matplotlib.pyplot as plt
 import argparse
@@ -37,6 +39,10 @@ parser.add_argument('-pMax', '--pMax', type=int, default=1, help=r'Maximum C-AR 
 parser.add_argument('-pMin', '--pMin', type=int, default=1, help=r'Minimum C-AR order')
 parser.add_argument('-qMax', '--qMax', type=int, default=-1, help=r'Maximum C-MA order')
 parser.add_argument('-qMin', '--qMin', type=int, default=-1, help=r'Minimum C-MA order')
+parser.add_argument('-wT', '--widthT', type=float, default=0.01,
+                    help=r'Width of prior in T')
+parser.add_argument('-wF', '--widthF', type=float, default=0.05,
+                    help=r'Width of prior in F')
 parser.add_argument('-minT', '--minTimescale', type=float, default=2.0,
                     help=r'Minimum allowed timescale = minTimescale*lc.dt')
 parser.add_argument('-maxT', '--maxTimescale', type=float, default=0.5,
@@ -104,8 +110,12 @@ DICDict = dict()
 
 if args.plot:
     basic = Obj.plot(fig=100, colory=r'#000000')
+    periodogram = Obj.plotperiodogram(fig=99, colory=r'#000000')
     if args.save:
         basic.savefig(os.path.join(outDir, 'kali.lc%s'%(ext)), dpi=args.dpi)
+        periodogram.savefig(os.path.join(outDir, 'kali.lc.periodogram%s'%(ext)), dpi=args.dpi)
+    plt.close(basic)
+    plt.close(periodogram)
 
 
 def fitCARMA(pVal, qVal, Obj, args):
@@ -124,12 +134,12 @@ def fitCARMA(pVal, qVal, Obj, args):
 
 
 def fitMBHB(Obj, args):
-    mbhbTask = kali.mbhb.MBHBTask(nthreads=args.nthreads,
+    mbhbTask = kali.mbhb.MBHBTask(0, 0, nthreads=args.nthreads,
                                   maxEvals=args.maxEvals, nwalkers=args.nwalkers,
                                   nsteps=args.nsteps)
     print 'Starting kali.mbhb fitting for p = %d and q = %d...'%(0, 0)
     startMBHBTask = time.time()
-    mbhbTask.fit(Obj)
+    mbhbTask.fit(Obj, widthT=args.widthT, widthF=args.widthF)
     stopMBHBTask = time.time()
     timeMBHBTask = stopMBHBTask - startMBHBTask
     print 'kali.mbhb took %4.3f s = %4.3f min = %4.3f hrs'%(timeMBHBTask,
@@ -145,7 +155,7 @@ def fitMBHBCARMA(pVal, qVal, Obj, args):
                                                  nsteps=args.nsteps)
     print 'Starting kali.mbhbcarma fitting for p = %d and q = %d...'%(pVal, qVal)
     startMBHBCARMATask = time.time()
-    mbhbcarmaTask.fit(Obj)
+    mbhbcarmaTask.fit(Obj, widthT=args.widthT, widthF=args.widthF)
     stopMBHBCARMATask = time.time()
     timeMBHBCARMATask = stopMBHBCARMATask - startMBHBCARMATask
     print 'kali.mbhbcarma took %4.3f s = %4.3f min = %4.3f hrs'%(timeMBHBCARMATask,
@@ -170,10 +180,12 @@ if args.plot:
     if args.save:
         res[0][0].savefig(os.path.join(outDir, 'kali.mbhb.%d.%d.orb%s'%(0, 0, ext)), dpi=args.dpi)
         res[1][0].savefig(os.path.join(outDir, 'kali.mbhb.%d.%d.aux%s'%(0, 0, ext)), dpi=args.dpi)
+    plt.close(res[0][0])
+    plt.close(res[1][0])
 taskDict['kali.mbhb %d %d'%(0, 0)] = mbhbTask
 DICDict['kali.mbhb %d %d'%(0, 0)] = mbhbTask.dic
 theta_mbhb = mbhbTask.bestTheta
-bestMBHBTask = kali.mbhb.MBHBTask(nthreads=args.nthreads,
+bestMBHBTask = kali.mbhb.MBHBTask(0, 0, nthreads=args.nthreads,
                                   maxEvals=args.maxEvals, nwalkers=args.nwalkers,
                                   nsteps=args.nsteps)
 bestMBHBTask.set(theta_mbhb)
@@ -182,12 +194,13 @@ if args.plot:
     res = Obj.plot(colory=r'#000000', colors=[r'#7b3294', r'#c2a5cf'])
     if args.save:
         res.savefig(os.path.join(outDir, 'kali.mbhb.%d.%d.lc%s'%(0, 0, ext)), dpi=args.dpi)
+    plt.close(res)
 
 if args.plot:
     comp = Obj.plot(fig=100, colory=r'#000000', colors=[r'#7b3294', r'#c2a5cf'])
 
 for pVal in xrange(args.pMin, args.pMax + 1):
-    for qVal in xrange(args.qMin, args.qMax + 1):
+    for qVal in xrange(max(0, args.qMin), min(pVal, args.qMax + 1)):
         if args.rerun:
             carmaTask = fitCARMA(pVal, qVal, Obj, args)
         else:
@@ -203,6 +216,7 @@ for pVal in xrange(args.pMin, args.pMax + 1):
             if args.save:
                 res[0][0].savefig(os.path.join(outDir, 'kali.carma.%d.%d.sto%s'%(pVal, qVal, ext)),
                                   dpi=args.dpi)
+            plt.close(res[0][0])
         taskDict['kali.carma %d %d'%(pVal, qVal)] = carmaTask
         DICDict['kali.carma %d %d'%(pVal, qVal)] = carmaTask.dic
         theta_carma = carmaTask.bestTheta
@@ -215,6 +229,7 @@ for pVal in xrange(args.pMin, args.pMax + 1):
             res = Obj.plot(colory=r'#000000', colors=[r'#a6611a', r'#dfc27d'])
             if args.save:
                 res.savefig(os.path.join(outDir, 'kali.carma.%d.%d.lc%s'%(pVal, qVal, ext)), dpi=args.dpi)
+            plt.close(res)
 
         if args.plot:
             comp = Obj.plot(fig=100, clearFig=False, colory=r'#000000', colors=[r'#a6611a', r'#dfc27d'])
@@ -238,6 +253,9 @@ for pVal in xrange(args.pMin, args.pMax + 1):
                                   dpi=args.dpi)
                 res[2][0].savefig(os.path.join(outDir, 'kali.mbhbcarma.%d.%d.aux%s'%(pVal, qVal, ext)),
                                   dpi=args.dpi)
+            plt.close(res[0][0])
+            plt.close(res[1][0])
+            plt.close(res[2][0])
         taskDict['kali.mbhbcarma %d %d'%(pVal, qVal)] = mbhbcarmaTask
         DICDict['kali.mbhbcarma %d %d'%(pVal, qVal)] = mbhbcarmaTask.dic
         theta_mbhbcarma = mbhbcarmaTask.bestTheta
@@ -250,15 +268,14 @@ for pVal in xrange(args.pMin, args.pMax + 1):
             res = Obj.plot(colory=r'#000000', colors=[r'#018571', r'#80cdc1'])
             if args.save:
                 res.savefig(os.path.join(outDir, 'kali.mbhbcarma.%d.%d.lc%s'%(pVal, qVal, ext)), dpi=args.dpi)
+            plt.close(res)
 
         if args.plot:
             comp = Obj.plot(fig=100, clearFig=False, colory=r'#000000', colors=[r'#018571', r'#80cdc1'])
-        # beamObj = bestMBHBCarmaTask.beam(duration=1.5*Obj.T, startT=Obj.startT)
-        # if args.plot:
-            # comp = beamObj.plot(fig=100, clearFig=False, colorx=r'#ca0020')
-        if args.plot:
-            if args.save:
-                comp.savefig(os.path.join(outDir, 'comp_kali.%d.%d.lc%s'%(pVal, qVal, ext)), dpi=args.dpi)
+if args.plot:
+    if args.save:
+        comp.savefig(os.path.join(outDir, 'comp_kali.lc%s'%(ext)), dpi=args.dpi)
+    plt.close(comp)
 
 sortedDICVals = sorted(DICDict.items(), key=operator.itemgetter(1))
 modelBest = str(sortedDICVals[0][0].split()[0])
@@ -266,6 +283,8 @@ pBest = int(sortedDICVals[0][0].split()[1])
 qBest = int(sortedDICVals[0][0].split()[2])
 print 'Best model is %s (%d,%d)'%(modelBest, pBest, qBest)
 bestTask = taskDict['%s %d %d'%(modelBest, pBest, qBest)]
+for key in taskDict.keys():
+    print 'Model: %s; Relative Likelihood: %e'%(key, math.exp((bestTask.dic - taskDict[key].dic)/2.0))
 loc0 = np.where(bestTask.LnPosterior == np.max(bestTask.LnPosterior))[0][0]
 loc1 = np.where(bestTask.LnPosterior == np.max(bestTask.LnPosterior))[1][0]
 if args.plot:
@@ -273,14 +292,20 @@ if args.plot:
     if args.save:
         res[0][0].savefig(os.path.join(outDir, 'best_%s.%d.%d.sto%s'%(modelBest, pBest, qBest, ext)),
                           dpi=args.dpi)
-        if modelBest == 'kali.mbhbcarma':
+        if modelBest == 'kali.mbhb' or modelBest == 'kali.mbhbcarma':
             res[1][0].savefig(os.path.join(outDir, 'best_%s.%d.%d.orb%s'%(modelBest, pBest, qBest, ext)),
                               dpi=args.dpi)
-            res[2][0].savefig(os.path.join(outDir, 'best_%s.%d.%d.aux%s'%(modelBest, pBest, qBest, ext)),
-                              dpi=args.dpi)
+            if modelBest == 'kali.mbhbcarma':
+                res[2][0].savefig(os.path.join(outDir, 'best_%s.%d.%d.aux%s'%(modelBest, pBest, qBest, ext)),
+                                  dpi=args.dpi)
+        plt.close(res[0][0])
+        if modelBest == 'kali.mbhb' or modelBest == 'kali.mbhbcarma':
+            plt.close(res[1][0])
+            if modelBest == 'kali.mbhbcarma':
+                plt.close(res[2][0])
 theta_best = bestTask.bestTheta
 if modelBest == 'kali.mbhb':
-    optTask = kali.mbhb.MBHBTask(nthreads=args.nthreads,
+    optTask = kali.mbhb.MBHBTask(0, 0, nthreads=args.nthreads,
                                  maxEvals=args.maxEvals, nwalkers=args.nwalkers,
                                  nsteps=args.nsteps)
     optTask.set(theta_best)
@@ -299,5 +324,6 @@ if args.plot:
     res = Obj.plot()
     if args.save:
         res.savefig(os.path.join(outDir, 'best_%s.%d.%d.lc%s'%(modelBest, pVal, qVal, ext)), dpi=args.dpi)
+    plt.close(res)
 if args.stop:
     pdb.set_trace()
